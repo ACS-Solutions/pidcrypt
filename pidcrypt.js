@@ -210,3 +210,5 @@ function pidCrypt(){
   //TODO warnings
 }
 
+
+module.exports = pidCrypt;

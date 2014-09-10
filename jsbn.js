@@ -1230,3 +1230,6 @@ BigInteger.prototype.isProbablePrime = bnIsProbablePrime;
 // int hashCode()
 // long longValue()
 // static BigInteger valueOf(long val)
+
+
+module.exports = BigInteger;

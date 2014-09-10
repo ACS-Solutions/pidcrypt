@@ -70,4 +70,4 @@ function SecureRandom() {
 }
 
 
-
+module.exports = SecureRandom;

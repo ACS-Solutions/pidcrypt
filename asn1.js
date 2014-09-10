@@ -40,128 +40,9 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 /*----------------------------------------------------------------------------*/
 
-function Stream(enc, pos) {
-  if (enc instanceof Stream) {
-    this.enc = enc.enc;
-    this.pos = enc.pos;
-  } else {
-    this.enc = enc;
-    this.pos = pos;
-  }
-}
+var Stream = require("./stream");
 
-//pidCrypt extensions start
-//hex string
-Stream.prototype.parseStringHex = function(start, end) {
-  if(typeof(end) == 'undefined') end = this.enc.length;
-  var s = "";
-  for (var i = start; i < end; ++i) {
-    var h = this.get(i);
-    s += this.hexDigits.charAt(h >> 4) + this.hexDigits.charAt(h & 0xF);
-  }
-  return s;
-}
-//pidCrypt extensions end
-
-Stream.prototype.get = function(pos) {
-  if (pos == undefined)
-	  pos = this.pos++;
-  if (pos >= this.enc.length)
-	  throw 'Requesting byte offset ' + pos + ' on a stream of length ' + this.enc.length;
-
-  return this.enc[pos];
-}
-Stream.prototype.hexDigits = "0123456789ABCDEF";
-Stream.prototype.hexDump = function(start, end) {
-  var s = "";
-  for (var i = start; i < end; ++i) {
-    var h = this.get(i);
-    s += this.hexDigits.charAt(h >> 4) + this.hexDigits.charAt(h & 0xF);
-    if ((i & 0xF) == 0x7)
-      s += ' ';
-    s += ((i & 0xF) == 0xF) ? '\n' : ' ';
-  }
-
-  return s;
-}
-Stream.prototype.parseStringISO = function(start, end) {
-  var s = "";
-  for (var i = start; i < end; ++i)
-	  s += String.fromCharCode(this.get(i));
-
-  return s;
-}
-Stream.prototype.parseStringUTF = function(start, end) {
-  var s = "", c = 0;
-  for (var i = start; i < end; ) {
-	  var c = this.get(i++);
-	  if (c < 128)
-	    s += String.fromCharCode(c);
-    else
-      if ((c > 191) && (c < 224))
-        s += String.fromCharCode(((c & 0x1F) << 6) | (this.get(i++) & 0x3F));
-      else
-        s += String.fromCharCode(((c & 0x0F) << 12) | ((this.get(i++) & 0x3F) << 6) | (this.get(i++) & 0x3F));
-	//TODO: this doesn't check properly 'end', some char could begin before and end after
-  }
-  return s;
-}
-Stream.prototype.reTime = /^((?:1[89]|2\d)?\d\d)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])(?:([0-5]\d)(?:([0-5]\d)(?:[.,](\d{1,3}))?)?)?(Z|[-+](?:[0]\d|1[0-2])([0-5]\d)?)?$/;
-Stream.prototype.parseTime = function(start, end) {
-  var s = this.parseStringISO(start, end);
-  var m = this.reTime.exec(s);
-  if (!m)
-	  return "Unrecognized time: " + s;
-  s = m[1] + "-" + m[2] + "-" + m[3] + " " + m[4];
-  if (m[5]) {
-	  s += ":" + m[5];
-	  if (m[6]) {
-	    s += ":" + m[6];
-	    if (m[7])
-		    s += "." + m[7];
-	  }
-  }
-  if (m[8]) {
-	  s += " UTC";
-	  if (m[8] != 'Z') {
-	    s += m[8];
-	    if (m[9])
-		    s += ":" + m[9];
-	  }
-  }
-  return s;
-}
-Stream.prototype.parseInteger = function(start, end) {
-  if ((end - start) > 4)
-	  return undefined;
-  //TODO support negative numbers
-  var n = 0;
-  for (var i = start; i < end; ++i)
-	  n = (n << 8) | this.get(i);
-
-  return n;
-}
-Stream.prototype.parseOID = function(start, end) {
-  var s, n = 0, bits = 0;
-  for (var i = start; i < end; ++i) {
-	  var v = this.get(i);
-	  n = (n << 7) | (v & 0x7F);
-	  bits += 7;
-	  if (!(v & 0x80)) { // finished
-	    if (s == undefined)
-		    s = parseInt(n / 40) + "." + (n % 40);
-	    else
-		    s += "." + ((bits >= 31) ? "big" : n);
-	    n = bits = 0;
-	  }
-	  s += String.fromCharCode();
-  }
-  return s;
-}
-
-if(typeof(pidCrypt) != 'undefined')
-{
-  pidCrypt.ASN1 = function(stream, header, length, tag, sub) {
+var ASN1 = function(stream, header, length, tag, sub) {
     this.stream = stream;
     this.header = header;
     this.length = length;
@@ -180,7 +61,7 @@ if(typeof(pidCrypt) != 'undefined')
   //                  INTEGER: public exponent
   //              }
   //}
-  pidCrypt.ASN1.prototype.toHexTree = function() {
+ASN1.prototype.toHexTree = function() {
     var node = {};
     node.type = this.typeName();
     if(node.type != 'SEQUENCE')
@@ -194,7 +75,7 @@ if(typeof(pidCrypt) != 'undefined')
   }
   //pidCrypt extensions end
 
-  pidCrypt.ASN1.prototype.typeName = function() {
+ASN1.prototype.typeName = function() {
     if (this.tag == undefined)
     return "unknown";
     var tagClass = this.tag >> 6;
@@ -237,7 +118,8 @@ if(typeof(pidCrypt) != 'undefined')
       case 3: return "Private_" + tagNumber.toString(16);
     }
   }
-  pidCrypt.ASN1.prototype.content = function() {
+
+ASN1.prototype.content = function() {
     if (this.tag == undefined)
       return null;
     var tagClass = this.tag >> 6;
@@ -282,10 +164,12 @@ if(typeof(pidCrypt) != 'undefined')
     }
     return null;
   }
-  pidCrypt.ASN1.prototype.toString = function() {
+
+ASN1.prototype.toString = function() {
     return this.typeName() + "@" + this.stream.pos + "[header:" + this.header + ",length:" + this.length + ",sub:" + ((this.sub == null) ? 'null' : this.sub.length) + "]";
   }
-  pidCrypt.ASN1.prototype.print = function(indent) {
+
+ASN1.prototype.print = function(indent) {
     if (indent == undefined) indent = '';
       document.writeln(indent + this);
     if (this.sub != null) {
@@ -294,7 +178,8 @@ if(typeof(pidCrypt) != 'undefined')
       this.sub[i].print(indent);
     }
   }
-  pidCrypt.ASN1.prototype.toPrettyString = function(indent) {
+
+ASN1.prototype.toPrettyString = function(indent) {
     if (indent == undefined) indent = '';
     var s = indent + this.typeName() + " @" + this.stream.pos;
     if (this.length >= 0)
@@ -313,7 +198,8 @@ if(typeof(pidCrypt) != 'undefined')
     }
     return s;
   }
-  pidCrypt.ASN1.prototype.toDOM = function() {
+
+ASN1.prototype.toDOM = function() {
     var node = document.createElement("div");
     node.className = "node";
     node.asn1 = this;
@@ -363,16 +249,20 @@ if(typeof(pidCrypt) != 'undefined')
     };
     return node;
   }
-  pidCrypt.ASN1.prototype.posStart = function() {
+
+ASN1.prototype.posStart = function() {
     return this.stream.pos;
   }
-  pidCrypt.ASN1.prototype.posContent = function() {
+
+ASN1.prototype.posContent = function() {
     return this.stream.pos + this.header;
   }
-  pidCrypt.ASN1.prototype.posEnd = function() {
+
+ASN1.prototype.posEnd = function() {
     return this.stream.pos + this.header + Math.abs(this.length);
   }
-  pidCrypt.ASN1.prototype.toHexDOM_sub = function(node, className, stream, start, end) {
+
+ASN1.prototype.toHexDOM_sub = function(node, className, stream, start, end) {
     if (start >= end)
       return;
     var sub = document.createElement("span");
@@ -381,7 +271,8 @@ if(typeof(pidCrypt) != 'undefined')
     stream.hexDump(start, end)));
     node.appendChild(sub);
   }
-  pidCrypt.ASN1.prototype.toHexDOM = function() {
+
+ASN1.prototype.toHexDOM = function() {
     var node = document.createElement("span");
     node.className = 'hex';
     this.head.hexNode = node;
@@ -404,11 +295,12 @@ if(typeof(pidCrypt) != 'undefined')
   }
 
   /*
-  pidCrypt.ASN1.prototype.getValue = function() {
+ASN1.prototype.getValue = function() {
       TODO
   }
   */
-  pidCrypt.ASN1.decodeLength = function(stream) {
+
+ASN1.decodeLength = function(stream) {
       var buf = stream.get();
       var len = buf & 0x7F;
       if (len == buf)
@@ -422,7 +314,8 @@ if(typeof(pidCrypt) != 'undefined')
           buf = (buf << 8) | stream.get();
       return buf;
   }
-  pidCrypt.ASN1.hasContent = function(tag, len, stream) {
+
+ASN1.hasContent = function(tag, len, stream) {
       if (tag & 0x20) // constructed
       return true;
       if ((tag < 0x03) || (tag > 0x04))
@@ -439,7 +332,8 @@ if(typeof(pidCrypt) != 'undefined')
       return false;
       }
   }
-  pidCrypt.ASN1.decode = function(stream) {
+
+ASN1.decode = function(stream) {
     if (!(stream instanceof Stream))
         stream = new Stream(stream, 0);
     var streamStart = new Stream(stream);
@@ -477,7 +371,8 @@ if(typeof(pidCrypt) != 'undefined')
         stream.pos += len; // skip content
     return new pidCrypt.ASN1(streamStart, header, len, tag, sub);
   }
-  pidCrypt.ASN1.test = function() {
+
+ASN1.test = function() {
     var test = [
       { value: [0x27],                   expected: 0x27     },
       { value: [0x81, 0xC9],             expected: 0xC9     },
@@ -491,4 +386,6 @@ if(typeof(pidCrypt) != 'undefined')
         document.write("In test[" + i + "] expected " + test[i].expected + " got " + res + "\n");
     }
   }
-}
+
+
+module.exports = ASN1;

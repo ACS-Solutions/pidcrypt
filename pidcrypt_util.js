@@ -345,3 +345,6 @@ pidCryptUtil.byteArray2String = function(b){
 //  alert(out);
   return s;
 }
+
+
+module.exports = pidCryptUtil;
