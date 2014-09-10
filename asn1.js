@@ -326,7 +326,7 @@ ASN1.hasContent = function(tag, len, stream) {
       if ((subTag >> 6) & 0x01) // not (universal or context)
       return false;
       try {
-      var subLength = pidCrypt.ASN1.decodeLength(p);
+      var subLength = ASN1.decodeLength(p);
       return ((p.pos - stream.pos) + subLength == len);
       } catch (exception) {
       return false;
@@ -338,10 +338,10 @@ ASN1.decode = function(stream) {
         stream = new Stream(stream, 0);
     var streamStart = new Stream(stream);
     var tag = stream.get();
-    var len = pidCrypt.ASN1.decodeLength(stream);
+    var len = ASN1.decodeLength(stream);
     var header = stream.pos - streamStart.pos;
     var sub = null;
-    if (pidCrypt.ASN1.hasContent(tag, len, stream)) {
+    if (ASN1.hasContent(tag, len, stream)) {
     // it has content, so we decode it
     var start = stream.pos;
     if (tag == 0x03) stream.get(); // skip BitString unused bits, must be in [0, 7]
@@ -350,14 +350,14 @@ ASN1.decode = function(stream) {
         // definite length
         var end = start + len;
         while (stream.pos < end)
-        sub[sub.length] = pidCrypt.ASN1.decode(stream);
+        sub[sub.length] = ASN1.decode(stream);
         if (stream.pos != end)
         throw "Content size is not correct for container starting at offset " + start;
     } else {
         // undefined length
         try {
         for (;;) {
-            var s = pidCrypt.ASN1.decode(stream);
+            var s = ASN1.decode(stream);
             if (s.tag == 0)
             break;
             sub[sub.length] = s;
@@ -369,7 +369,7 @@ ASN1.decode = function(stream) {
     }
     } else
         stream.pos += len; // skip content
-    return new pidCrypt.ASN1(streamStart, header, len, tag, sub);
+    return new ASN1(streamStart, header, len, tag, sub);
   }
 
 ASN1.test = function() {
@@ -381,7 +381,7 @@ ASN1.test = function() {
     for (var i = 0, max = test.length; i < max; ++i) {
       var pos = 0;
       var stream = new Stream(test[i].value, 0);
-      var res = pidCrypt.ASN1.decodeLength(stream);
+      var res = ASN1.decodeLength(stream);
       if (res != test[i].expected)
         document.write("In test[" + i + "] expected " + test[i].expected + " got " + res + "\n");
     }
