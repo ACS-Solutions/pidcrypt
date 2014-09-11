@@ -1,3 +1,9 @@
+
+2014-09-11
+Selectively modified to function as CommonJS modules by ACS/MW.
+
+
+
 Release 005,
 **************   Changes   **************
 - Removed the extending of javascript core classes removed of security issues in some enviroments 
